@@ -1,0 +1,1633 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SPECTRAL CHILD — Cancer Alley Data Visualization</title>
+    <style>
+        @font-face {
+            font-family: 'TAY Noodle';
+            src: url('TAYNoodleRegular.otf') format('opentype');
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary: #0a0008;
+            --secondary: #1a0a15;
+            --accent-1: #cc0000;
+            --accent-2: #ff69b4;
+            --accent-3: #ff3366;
+            --text: #ff3333;
+            --warn: #ff0000;
+            --critical: #ff0000;
+            --paper: #ffcccc;
+            --ink: #0a0008;
+            --bubble: #fff0f0;
+        }
+
+        body {
+            background-color: var(--primary);
+            color: var(--text);
+            font-family: 'Lucida Console', 'Courier New', monospace;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* Continuous glitch/distortion background */
+        #background-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+
+        /* Main content container */
+        .container {
+            position: relative;
+            z-index: 10;
+            width: 100%;
+            height: 100vh;
+            display: flex;
+            overflow: hidden;
+            backdrop-filter: saturate(105%);
+        }
+
+        /* LEFT PANEL - Information */
+        .info-panel {
+            width: 35%;
+            padding: 40px;
+            overflow-y: auto;
+            background: linear-gradient(155deg, rgba(10, 0, 8, 0.98), rgba(26, 10, 21, 0.95));
+            border-right: 4px solid var(--accent-2);
+            box-shadow: -15px 0 60px rgba(136, 0, 255, 0.4), inset 0 0 40px rgba(204, 0, 0, 0.15);
+            animation: panel-flicker 0.1s infinite;
+        }
+
+        @keyframes panel-flicker {
+            0% { opacity: 1; }
+            3% { opacity: 0.95; }
+            5% { opacity: 1; }
+            8% { opacity: 0.92; }
+            10% { opacity: 1; }
+            14% { opacity: 0.94; }
+            15% { opacity: 1; }
+            20% { opacity: 0.96; }
+            30% { opacity: 1; }
+            32% { opacity: 0.93; }
+            35% { opacity: 1; }
+            50% { opacity: 0.98; }
+            55% { opacity: 0.95; }
+            58% { opacity: 1; }
+            70% { opacity: 0.97; }
+            75% { opacity: 0.94; }
+            80% { opacity: 1; }
+            100% { opacity: 1; }
+        }
+
+        .info-panel h1 {
+            font-size: 2.1em;
+            margin-bottom: 10px;
+            color: var(--accent-1);
+            text-shadow: 0 0 25px var(--accent-1), 0 0 50px rgba(136, 0, 255, 0.6);
+            animation: text-glitch 2s infinite;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            font-family: 'TAY Noodle', 'Impact', sans-serif;
+            font-weight: normal;
+        }
+
+        @keyframes text-glitch {
+            0%, 100% { text-shadow: 0 0 20px var(--accent-1); clip-path: inset(0); }
+            20% { text-shadow: -4px -4px 0 var(--accent-2), 4px 4px 0 var(--accent-3); clip-path: inset(20% 0 60% 0); }
+            40% { text-shadow: 0 0 20px var(--accent-1); clip-path: inset(0); }
+            60% { text-shadow: 4px 4px 0 var(--accent-3), -4px -4px 0 var(--accent-2); clip-path: inset(40% 0 30% 0); }
+            80% { text-shadow: 0 0 20px var(--accent-3), 4px 4px 0 var(--accent-2); clip-path: inset(0); }
+        }
+
+        .info-panel .subtitle {
+            color: var(--accent-2);
+            font-size: 0.9em;
+            margin-bottom: 20px;
+            opacity: 0.8;
+        }
+
+        .info-panel section {
+            margin-bottom: 25px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid var(--accent-2);
+            opacity: 0;
+            animation: fade-in 1s ease forwards;
+        }
+
+        .info-panel section:nth-child(2) { animation-delay: 0.1s; }
+        .info-panel section:nth-child(3) { animation-delay: 0.2s; }
+        .info-panel section:nth-child(4) { animation-delay: 0.3s; }
+        .info-panel section:nth-child(5) { animation-delay: 0.4s; }
+
+        @keyframes fade-in {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .info-panel h2 {
+            color: var(--accent-2);
+            font-size: 0.85em;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-family: 'TAY Noodle', 'Impact', sans-serif;
+            font-weight: normal;
+        }
+
+        .info-panel p {
+            line-height: 1.5;
+            font-size: 0.8em;
+            color: rgba(224, 224, 224, 0.85);
+        }
+
+        .stat-block {
+            background: rgba(255, 0, 255, 0.05);
+            border-left: 3px solid var(--accent-1);
+            padding: 10px 12px;
+            margin: 8px 0;
+            font-size: 0.75em;
+            font-weight: bold;
+            color: var(--warn);
+        }
+
+        /* RIGHT PANEL - Heatmap */
+        .heatmap-panel {
+            width: 65%;
+            display: flex;
+            flex-direction: column;
+            background: linear-gradient(30deg, rgba(10, 0, 8, 0.98), rgba(26, 10, 21, 0.95));
+            border-left: 4px solid var(--accent-1);
+            box-shadow: 8px 0 60px rgba(204, 0, 0, 0.4), inset 0 0 40px rgba(136, 0, 255, 0.1);
+            position: relative;
+            overflow: hidden;
+            padding: 18px;
+            gap: 14px;
+        }
+
+        .hero-title {
+            color: var(--paper);
+            font-size: 1.8em;
+            line-height: 1;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            text-shadow: 0 0 20px rgba(255, 255, 0, 0.6), 0 0 40px rgba(136, 0, 255, 0.5);
+            font-family: 'TAY Noodle', 'Impact', sans-serif;
+            margin-bottom: 4px;
+            font-weight: normal;
+        }
+
+        .hero-subtitle {
+            color: var(--accent-2);
+            font-size: 0.74em;
+            text-transform: uppercase;
+            letter-spacing: 1.6px;
+            opacity: 0.85;
+        }
+
+        .hero-art {
+            position: relative;
+            min-height: 44vh;
+            border: 3px solid var(--accent-1);
+            background:
+                radial-gradient(circle at 15% 10%, rgba(255, 136, 0, 0.25), transparent 42%),
+                radial-gradient(circle at 80% 80%, rgba(255, 102, 0, 0.18), transparent 50%),
+                linear-gradient(130deg, rgba(26, 15, 10, 0.96), rgba(13, 7, 4, 0.94));
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 0 30px rgba(255, 136, 0, 0.35);
+        }
+
+        .hero-art::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background:
+                repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.02) 0 2px, transparent 2px 8px),
+                repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.02) 0 2px, transparent 2px 8px);
+            pointer-events: none;
+            mix-blend-mode: soft-light;
+        }
+
+        .hero-image {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            width: min(68%, 620px);
+            max-height: 90%;
+            object-fit: contain;
+            padding: 10px;
+            background: #ffffff;
+            border-radius: 3px;
+            border: 1px solid rgba(0, 0, 0, 0.3);
+            filter: drop-shadow(0 12px 22px rgba(0, 0, 0, 0.45));
+            transform: translate(-50%, -50%) rotate(-1deg);
+            transition: transform 0.25s steps(3, end), box-shadow 0.25s steps(3, end), filter 0.25s steps(3, end);
+            z-index: 2;
+            cursor: zoom-in;
+        }
+
+        .hero-image:hover,
+        .hero-image:focus-visible {
+            transform: translate(-50%, -50%) rotate(1deg) scale(1.04);
+            box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.9), 0 0 26px rgba(255, 105, 180, 0.65);
+            filter: drop-shadow(0 14px 26px rgba(0, 0, 0, 0.6));
+            outline: none;
+        }
+
+        .walker-banner {
+            position: relative;
+            width: 100%;
+            min-height: 104px;
+            border: 3px solid rgba(255, 105, 180, 0.7);
+            border-radius: 8px;
+            overflow: hidden;
+            background:
+                linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px) 0 0 / 12px 12px,
+                linear-gradient(0deg, rgba(255, 255, 255, 0.04) 1px, transparent 1px) 0 0 / 12px 12px,
+                linear-gradient(130deg, rgba(26, 15, 10, 0.95), rgba(13, 7, 4, 0.94));
+            box-shadow: 0 0 22px rgba(255, 105, 180, 0.35), inset 0 0 22px rgba(255, 105, 180, 0.18);
+            margin-bottom: 8px;
+        }
+
+        .walker-banner svg {
+            width: 100%;
+            height: 100%;
+            min-height: 104px;
+            display: block;
+            shape-rendering: crispEdges;
+            image-rendering: pixelated;
+        }
+
+        .walker-banner-gif {
+            width: 100%;
+            min-height: 104px;
+            height: 100%;
+            display: block;
+            object-fit: contain;
+            image-rendering: pixelated;
+            background: transparent;
+        }
+
+        .walker-figure {
+            transform-box: fill-box;
+            transform-origin: center bottom;
+            animation: walker-bob 0.7s steps(2, end) infinite;
+        }
+
+        /* Right limbs: pivot at top-left of bounding box (elements extend right+down) */
+        .walker-arm-r,
+        .walker-leg-r {
+            transform-box: fill-box;
+            transform-origin: 0% 0%;
+        }
+        /* Left limbs: pivot at top-right of bounding box (elements extend left+down) */
+        .walker-arm-l,
+        .walker-leg-l {
+            transform-box: fill-box;
+            transform-origin: 100% 0%;
+        }
+
+        .walker-arm-l { animation: walker-arm-l 0.8s steps(4, end) infinite; }
+        .walker-arm-r { animation: walker-arm-r 0.8s steps(4, end) infinite; }
+        .walker-leg-l { animation: walker-leg-l 0.8s steps(4, end) infinite; }
+        .walker-leg-r { animation: walker-leg-r 0.8s steps(4, end) infinite; }
+
+        .walker-radiant {
+            animation: walker-radiant 0.6s steps(2, end) infinite;
+        }
+
+        @keyframes walker-bob {
+            0% { transform: translateY(0); }
+            50% { transform: translateY(-3px); }
+            100% { transform: translateY(0); }
+        }
+
+        @keyframes walker-arm-r {
+            0% { transform: rotate(15deg); }
+            50% { transform: rotate(-20deg); }
+            100% { transform: rotate(15deg); }
+        }
+
+        @keyframes walker-arm-l {
+            0% { transform: rotate(-20deg); }
+            50% { transform: rotate(20deg); }
+            100% { transform: rotate(-20deg); }
+        }
+
+        @keyframes walker-leg-r {
+            0% { transform: rotate(-22deg); }
+            50% { transform: rotate(22deg); }
+            100% { transform: rotate(-22deg); }
+        }
+
+        @keyframes walker-leg-l {
+            0% { transform: rotate(22deg); }
+            50% { transform: rotate(-22deg); }
+            100% { transform: rotate(22deg); }
+        }
+
+        @keyframes walker-radiant {
+            0%, 100% { opacity: 0.45; }
+            50% { opacity: 1; }
+        }
+
+        .image-modal {
+            position: fixed;
+            inset: 0;
+            background: rgba(8, 0, 10, 0.92);
+            z-index: 90;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s steps(2, end);
+            padding: 20px;
+        }
+
+        .image-modal.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .image-modal-window {
+            width: min(96vw, 1280px);
+            max-height: 90vh;
+            display: grid;
+            grid-template-columns: 1.2fr 0.8fr;
+            gap: 16px;
+            padding: 14px;
+            border: 2px solid rgba(255, 255, 255, 0.55);
+            border-radius: 6px;
+            background: linear-gradient(145deg, rgba(22, 8, 20, 0.98), rgba(8, 4, 12, 0.96));
+            box-shadow: 0 0 55px rgba(255, 105, 180, 0.45);
+        }
+
+        .image-modal-stage {
+            position: relative;
+            min-height: 420px;
+            border: 2px solid rgba(255, 255, 255, 0.6);
+            background: #ffffff;
+            overflow: hidden;
+        }
+
+        #image-modal-img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            display: block;
+            image-rendering: pixelated;
+        }
+
+        .image-zoom-lens {
+            position: absolute;
+            width: 34%;
+            aspect-ratio: 1 / 1;
+            border: 2px solid rgba(255, 105, 180, 0.95);
+            background: rgba(255, 255, 255, 0.12);
+            box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.45);
+            pointer-events: none;
+            display: none;
+        }
+
+        .image-modal-stage.zooming .image-zoom-lens {
+            display: block;
+        }
+
+        .image-modal-meta {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .image-zoom-panel {
+            flex: 1;
+            min-height: 300px;
+            border: 2px solid rgba(255, 255, 255, 0.6);
+            background-color: #ffffff;
+            background-repeat: no-repeat;
+            background-size: 260% 260%;
+            opacity: 0;
+            transition: opacity 0.15s steps(2, end);
+        }
+
+        .image-zoom-panel.active {
+            opacity: 1;
+        }
+
+        .image-modal-caption {
+            color: var(--paper);
+            font-size: 0.78em;
+            letter-spacing: 1px;
+            line-height: 1.4;
+            text-transform: uppercase;
+            border: 1px solid rgba(255, 255, 255, 0.25);
+            padding: 10px;
+        }
+
+        .zoom-hint {
+            color: var(--accent-2);
+            font-size: 0.74em;
+            letter-spacing: 0.8px;
+            text-transform: uppercase;
+            opacity: 0.9;
+        }
+
+        .image-modal-close {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            border: 2px solid var(--accent-2);
+            background: rgba(255, 255, 255, 0.08);
+            color: var(--paper);
+            padding: 8px 12px;
+            border-radius: 4px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            cursor: pointer;
+        }
+
+        .image-modal-close:hover {
+            background: rgba(255, 255, 255, 0.18);
+        }
+
+
+        .heatmap-title {
+            color: var(--accent-2);
+            font-size: 0.78em;
+            text-transform: uppercase;
+            letter-spacing: 1.8px;
+            margin-bottom: 8px;
+            text-shadow: 0 0 8px rgba(0, 255, 255, 0.45);
+        }
+
+        #heatmap-container {
+            position: relative;
+            flex: 1;
+            border: 3px solid var(--accent-1);
+            background: linear-gradient(135deg, rgba(10, 0, 8, 0.94), rgba(26, 10, 21, 0.94));
+            box-shadow: 0 0 40px rgba(204, 0, 0, 0.35), inset 0 0 30px rgba(136, 0, 255, 0.1);
+            border-radius: 5px;
+            overflow: hidden;
+            min-height: 260px;
+            transition: box-shadow 0.2s steps(2, end), border-color 0.2s steps(2, end), transform 0.2s steps(2, end);
+        }
+
+        #heatmap-container:hover,
+        #heatmap-container:focus-within {
+            border-color: #ff99c7;
+            box-shadow: 0 0 55px rgba(255, 105, 180, 0.75), 0 0 16px rgba(255, 255, 255, 0.7), inset 0 0 36px rgba(255, 105, 180, 0.28);
+            transform: translateY(-1px);
+        }
+
+        .heatmap-popout-trigger {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            z-index: 7;
+            border: 2px solid var(--accent-2);
+            background: rgba(0, 0, 0, 0.42);
+            color: var(--paper);
+            font-size: 0.66em;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            padding: 6px 9px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background 0.2s steps(2, end), box-shadow 0.2s steps(2, end);
+        }
+
+        .heatmap-popout-trigger:hover {
+            background: rgba(255, 105, 180, 0.28);
+            box-shadow: 0 0 12px rgba(255, 105, 180, 0.7);
+        }
+
+        .heatmap-modal {
+            position: fixed;
+            inset: 0;
+            background: rgba(8, 0, 10, 0.94);
+            z-index: 95;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s steps(2, end);
+            padding: 20px;
+        }
+
+        .heatmap-modal.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .heatmap-modal-window {
+            width: min(96vw, 1320px);
+            max-height: 92vh;
+            background: linear-gradient(145deg, rgba(22, 8, 20, 0.98), rgba(8, 4, 12, 0.96));
+            border: 2px solid rgba(255, 255, 255, 0.55);
+            border-radius: 6px;
+            box-shadow: 0 0 55px rgba(255, 105, 180, 0.45);
+            padding: 14px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .heatmap-modal-title {
+            color: var(--paper);
+            font-size: 0.82em;
+            letter-spacing: 1.2px;
+            text-transform: uppercase;
+        }
+
+        .heatmap-modal-stage {
+            border: 2px solid rgba(255, 255, 255, 0.6);
+            background: rgba(0, 0, 0, 0.35);
+            min-height: 70vh;
+            overflow: hidden;
+        }
+
+        .heatmap-modal-stage svg {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        .heatmap-modal-close {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            border: 2px solid var(--accent-2);
+            background: rgba(255, 255, 255, 0.08);
+            color: var(--paper);
+            padding: 8px 12px;
+            border-radius: 4px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            cursor: pointer;
+        }
+
+        .heatmap-modal-close:hover {
+            background: rgba(255, 255, 255, 0.18);
+        }
+
+        #heatmap-svg {
+            width: 100%;
+            height: 100%;
+        }
+
+        .heatmap-gradient {
+            filter: blur(15px);
+            opacity: 0.9;
+        }
+
+        .pollution-marker {
+            cursor: pointer;
+            transition: all 0.3s;
+            filter: drop-shadow(0 0 3px currentColor);
+        }
+
+        .pollution-marker:hover {
+            filter: drop-shadow(0 0 15px currentColor) brightness(1.3);
+            r: 8;
+        }
+
+        .cancer-zone {
+            opacity: 0.7;
+            mix-blend-mode: screen;
+            filter: blur(25px);
+        }
+
+        .ghost-node {
+            fill: rgba(180, 255, 255, 0.85);
+            stroke: rgba(255, 255, 255, 0.9);
+            stroke-width: 1.2;
+            filter: drop-shadow(0 0 8px rgba(160, 255, 255, 0.8));
+            animation: ghost-pulse 1.6s steps(3, end) infinite;
+            transform-origin: center;
+            image-rendering: pixelated;
+        }
+
+        .ghost-node-ring {
+            fill: none;
+            stroke: rgba(180, 255, 255, 0.6);
+            stroke-width: 1;
+            animation: ghost-ring 1.8s steps(2, end) infinite;
+            transform-origin: center;
+            image-rendering: pixelated;
+        }
+
+        @keyframes ghost-pulse {
+            0% { opacity: 0.2; transform: scale(0.4) translate(0, 0); }
+            33% { opacity: 0.8; transform: scale(0.95) translate(-4px, 4px); }
+            66% { opacity: 0.9; transform: scale(1.4) translate(4px, -4px); }
+            100% { opacity: 0.2; transform: scale(0.4) translate(0, 0); }
+        }
+
+        @keyframes ghost-ring {
+            0% { opacity: 0.05; transform: scale(0.3) translate(0, 0); }
+            50% { opacity: 0.6; transform: scale(1.6) translate(-4px, 4px); }
+            100% { opacity: 0.05; transform: scale(0.3) translate(0, 0); }
+        }
+
+        /* Seed dispersal animations */
+        .seed-particle {
+            fill: rgba(100, 255, 100, 0.9);
+            filter: drop-shadow(0 0 12px rgba(100, 255, 100, 1)) drop-shadow(0 0 6px rgba(144, 238, 144, 0.8));
+            opacity: 0.85;
+            mix-blend-mode: lighten;
+            image-rendering: pixelated;
+        }
+
+        @keyframes seed-drift-1 {
+            0% { transform: translate(0, 0) rotate(0deg); opacity: 0; }
+            50% { opacity: 0.9; transform: translate(140px, -80px) rotate(180deg); }
+            100% { transform: translate(280px, -160px) rotate(360deg); opacity: 0; }
+        }
+
+        @keyframes seed-drift-2 {
+            0% { transform: translate(0, 0) rotate(0deg); opacity: 0; }
+            50% { opacity: 0.8; transform: translate(-120px, -100px) rotate(-180deg); }
+            100% { transform: translate(-240px, -200px) rotate(-360deg); opacity: 0; }
+        }
+
+        @keyframes seed-drift-3 {
+            0% { transform: translate(0, 0) rotate(0deg); opacity: 0; }
+            50% { opacity: 0.9; transform: translate(150px, 60px) rotate(180deg); }
+            100% { transform: translate(300px, 120px) rotate(360deg); opacity: 0; }
+        }
+
+        @keyframes seed-drift-4 {
+            0% { transform: translate(0, 0) rotate(0deg); opacity: 0; }
+            50% { opacity: 0.8; transform: translate(-110px, 90px) rotate(-180deg); }
+            100% { transform: translate(-220px, 180px) rotate(-360deg); opacity: 0; }
+        }
+
+        @keyframes seed-drift-5 {
+            0% { transform: translate(0, 0) rotate(0deg); opacity: 0; }
+            50% { opacity: 0.9; transform: translate(130px, 50px) rotate(180deg); }
+            100% { transform: translate(260px, 100px) rotate(360deg); opacity: 0; }
+        }
+
+        @keyframes seed-drift-6 {
+            0% { transform: translate(0, 0) rotate(0deg); opacity: 0; }
+            50% { opacity: 0.8; transform: translate(-140px, -70px) rotate(-180deg); }
+            100% { transform: translate(-280px, -140px) rotate(-360deg); opacity: 0; }
+        }
+
+        .marker-label {
+            font-size: 9px;
+            fill: var(--text);
+            text-anchor: middle;
+            pointer-events: none;
+            opacity: 0.8;
+            text-shadow: 0 0 3px black;
+        }
+
+        .heatmap-legend {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            font-size: 0.75em;
+            color: var(--text);
+            margin-top: 8px;
+            flex-wrap: wrap;
+            padding: 10px;
+            background: rgba(26, 10, 21, 0.8);
+            border-top: 2px solid var(--accent-1);
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .legend-swatch {
+            width: 12px;
+            height: 12px;
+            border-radius: 2px;
+        }
+
+        .info-overlay {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: rgba(26, 10, 21, 0.95);
+            border: 2px solid var(--accent-2);
+            box-shadow: 0 0 30px rgba(136, 0, 255, 0.6);
+            padding: 12px;
+            border-radius: 3px;
+            font-size: 0.75em;
+            color: var(--text);
+            max-width: 200px;
+            z-index: 20;
+            display: none;
+        }
+
+        .info-overlay.active {
+            display: block;
+            animation: fade-in 0.3s ease;
+        }
+
+        .info-overlay h3 {
+            color: var(--accent-1);
+            font-size: 0.85em;
+            margin-bottom: 5px;
+        }
+
+        .info-overlay p {
+            font-size: 0.7em;
+            line-height: 1.4;
+            color: rgba(232, 215, 0, 0.85);
+        }
+
+        .haunt-alert {
+            position: fixed;
+            right: 18px;
+            top: 18px;
+            width: 290px;
+            background: rgba(26, 10, 21, 0.97);
+            border: 2px solid var(--accent-2);
+            box-shadow: 0 0 25px rgba(255, 51, 51, 0.7);
+            border-radius: 8px;
+            z-index: 60;
+            padding: 12px;
+            transform: translateY(-140%);
+            transition: transform 0.35s ease;
+            pointer-events: none;
+        }
+
+        .haunt-alert.active {
+            transform: translateY(0);
+            pointer-events: auto;
+        }
+
+        .haunt-alert h4 {
+            color: var(--accent-1);
+            font-size: 0.8em;
+            letter-spacing: 1px;
+            margin-bottom: 6px;
+            text-transform: uppercase;
+        }
+
+        .haunt-alert p {
+            color: rgba(232, 215, 0, 0.9);
+            font-size: 0.74em;
+            line-height: 1.35;
+            margin-bottom: 8px;
+        }
+
+        .haunt-meta {
+            color: var(--accent-2);
+            font-size: 0.72em;
+            display: flex;
+            justify-content: space-between;
+            gap: 8px;
+        }
+
+        .haunt-alert button {
+            margin-top: 10px;
+            width: 100%;
+            border: 2px solid var(--accent-1);
+            background: rgba(255, 255, 0, 0.15);
+            color: var(--text);
+            font-size: 0.72em;
+            letter-spacing: 0.8px;
+            text-transform: uppercase;
+            padding: 7px 8px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        .haunt-alert button:hover {
+            background: rgba(255, 255, 0, 0.25);
+        }
+
+        /* Scrollbar styling */
+        .info-panel::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .info-panel::-webkit-scrollbar-track {
+            background: rgba(255, 136, 0, 0.05);
+        }
+
+        .info-panel::-webkit-scrollbar-thumb {
+            background: var(--accent-1);
+            border-radius: 4px;
+        }
+
+        .info-panel::-webkit-scrollbar-thumb:hover {
+            background: var(--accent-2);
+        }
+
+        /* Responsive */
+        @media (max-width: 1024px) {
+            .info-panel { width: 40%; }
+            .heatmap-panel { width: 60%; }
+            .hero-art { min-height: 36vh; }
+            .hero-image { width: min(72%, 560px); }
+        }
+
+        @media (max-width: 768px) {
+            .container { flex-direction: column; }
+            .info-panel { width: 100%; height: 32%; overflow-y: scroll; padding: 22px; }
+            .heatmap-panel { width: 100%; height: 68%; padding: 10px; gap: 8px; }
+            .hero-art { min-height: 33vh; }
+            .hero-title { font-size: 1.3em; }
+            .image-modal-window { grid-template-columns: 1fr; max-height: 92vh; overflow: auto; }
+            .image-modal-stage { min-height: 300px; }
+            .image-zoom-panel { display: none; }
+            .heatmap-modal-stage { min-height: 55vh; }
+        }
+    </style>
+</head>
+<body>
+    <canvas id="background-canvas"></canvas>
+
+    <div class="container">
+        <!-- LEFT PANEL: Information -->
+        <div class="info-panel">
+            <h1>SPECTRAL CHILD</h1>
+            <p class="subtitle">— Bio-Digital Mapping of Environmental Injustice</p>
+
+            <section>
+                <h2>[!] Cancer Alley: Louisiana's Sacrifice Zone</h2>
+                <p>An 85-mile industrial corridor along the Mississippi River between New Orleans and Baton Rouge containing over 200 petrochemical plants and refineries. The largest concentration of fossil fuel infrastructure in the Western Hemisphere.</p>
+                <div class="stat-block">CANCER RISK: 47x EPA ACCEPTABLE LEVEL</div>
+                <div class="stat-block">25% OF US PETROCHEMICAL PRODUCTION</div>
+            </section>
+
+            <section>
+                <h2>[●] Affected Parishes</h2>
+                <p><strong>Majority-Black Communities:</strong></p>
+                <p>• <strong>St. John the Baptist:</strong> Denka plant (99% of US chloroprene emissions)<br>
+                • <strong>St. James:</strong> Multiple PVC plants, 65.7% Black population<br>
+                • <strong>Iberville:</strong> 30+ petrochemical plants within 10-mile radius<br>
+                • <strong>East Baton Rouge, Ascension, St. Charles</strong></p>
+            </section>
+
+            <section>
+                <h2>[X] Primary Threats</h2>
+                <p><strong>Chloroprene (Neoprene):</strong> Carcinogenic and mutagenic compound. Air monitoring shows levels 14-83x safe EPA guideline of 0.2 μg/m³</p>
+                <div class="stat-block">FIFTH WARD ELEMENTARY: 83x GUIDELINE LEVELS</div>
+                <p style="margin-top: 8px; font-size: 0.75em;">Cells divide rapidly in children, making them especially vulnerable to DNA mutation.</p>
+            </section>
+
+            <section>
+                <h2>[#] Environmental Racism</h2>
+                <p>Industrial facilities deliberately sited in low-income Black communities through NIMBY dynamics. 75% of Black Americans live in "fence-line" communities near pollution sources.</p>
+                <p style="margin-top: 8px; font-size: 0.75em;">The EPA (2023) found significant evidence that Louisiana regulators' actions have resulted in adverse impacts on African American residents.</p>
+            </section>
+
+            <section>
+                <h2>[*] Spectral Child Response</h2>
+                <p>An embodied data practice that renders invisible toxicity visible. Making the imperceptible harms legible through speculative design while recognizing that no visualization can fully capture the lived experience of environmental injustice.</p>
+            </section>
+        </div>
+
+        <!-- RIGHT PANEL: Heatmap Visualization -->
+        <div class="heatmap-panel">
+            <div>
+                <div class="hero-subtitle">Aesthetic Evidence from Louisiana's Sacrifice Zone</div>
+            </div>
+
+            <div class="walker-banner" aria-hidden="true">
+                <img class="walker-banner-gif" src="jank%20af.gif" alt="" />
+            </div>
+
+            <div class="hero-art">
+                <img class="hero-image" id="hero-image" src="Spector%20Child.jpg" alt="Annotated Spectral Child hardware diagram and character collage" tabindex="0" />
+            </div>
+
+            <div class="heatmap-title">Predictive Harm Map: Louisiana Industrial Corridor</div>
+            
+            <div id="heatmap-container">
+                <button class="heatmap-popout-trigger" id="heatmap-popout-trigger" type="button">Expand Map</button>
+                <svg id="heatmap-svg" viewBox="0 0 800 600" preserveAspectRatio="xMidYMid meet">
+                    <defs>
+                        <radialGradient id="pollutionGradient1" cx="50%" cy="50%" r="50%">
+                            <stop offset="0%" style="stop-color:#ff0000;stop-opacity:0.8" />
+                            <stop offset="50%" style="stop-color:#ff6600;stop-opacity:0.4" />
+                            <stop offset="100%" style="stop-color:#ffff00;stop-opacity:0" />
+                        </radialGradient>
+                        <radialGradient id="pollutionGradient2" cx="50%" cy="50%" r="50%">
+                            <stop offset="0%" style="stop-color:#ff3333;stop-opacity:0.7" />
+                            <stop offset="50%" style="stop-color:#ff6633;stop-opacity:0.3" />
+                            <stop offset="100%" style="stop-color:#ffaaaa;stop-opacity:0" />
+                        </radialGradient>
+                        <radialGradient id="pollutionGradient3" cx="50%" cy="50%" r="50%">
+                            <stop offset="0%" style="stop-color:#cc0000;stop-opacity:0.75" />
+                            <stop offset="50%" style="stop-color:#ff4444;stop-opacity:0.35" />
+                            <stop offset="100%" style="stop-color:#ffcccc;stop-opacity:0" />
+                        </radialGradient>
+                        <filter id="glow">
+                            <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+                            <feMerge>
+                                <feMergeNode in="coloredBlur"/>
+                                <feMergeNode in="SourceGraphic"/>
+                            </feMerge>
+                        </filter>
+                    </defs>
+
+                    <!-- Background map representation -->
+                    <rect width="800" height="600" fill="rgba(10,20,40,0.3)"/>
+                    
+                    <!-- Grid overlay -->
+                    <g opacity="0.1" stroke="var(--accent-2)">
+                        <line x1="0" y1="0" x2="800" y2="0" stroke-width="1"/>
+                        <line x1="0" y1="150" x2="800" y2="150" stroke-width="0.5"/>
+                        <line x1="0" y1="300" x2="800" y2="300" stroke-width="0.5"/>
+                        <line x1="0" y1="450" x2="800" y2="450" stroke-width="0.5"/>
+                        <line x1="0" y1="600" x2="800" y2="600" stroke-width="1"/>
+                    </g>
+
+                    <!-- Cancer Alley Major Contamination Zones (scaled representation) -->
+                    <!-- Denka Plant Zone (St. John the Baptist - CRITICAL) -->
+                    <circle cx="250" cy="280" r="120" fill="url(#pollutionGradient1)" class="cancer-zone" filter="url(#glow)"/>
+                    <circle cx="250" cy="280" r="15" fill="#ff0000" class="pollution-marker" data-site="denka"/>
+                    <text x="250" y="300" class="marker-label">DENKA Plant</text>
+                    <text x="250" y="312" class="marker-label" style="font-size:8px;fill:#ffcccc;">99% Chloroprene</text>
+
+                    <!-- St. Gabriel Industrial Zone (Iberville - 30+ plants) -->
+                    <circle cx="320" cy="350" r="110" fill="url(#pollutionGradient2)" class="cancer-zone" filter="url(#glow)"/>
+                    <circle cx="320" cy="350" r="12" fill="#ff3333" class="pollution-marker" data-site="gabriel"/>
+                    <text x="320" y="370" class="marker-label">St. Gabriel</text>
+                    <text x="320" y="382" class="marker-label" style="font-size:8px;fill:#ffcccc;">30+ Plants</text>
+
+                    <!-- St. James Parish Zone (Formosa, PVC Plants) -->
+                    <circle cx="380" cy="200" r="100" fill="url(#pollutionGradient3)" class="cancer-zone" filter="url(#glow)"/>
+                    <circle cx="380" cy="200" r="12" fill="#cc0000" class="pollution-marker" data-site="stjames"/>
+                    <text x="380" y="220" class="marker-label">St. James Parish</text>
+                    <text x="380" y="232" class="marker-label" style="font-size:8px;fill:#ffcccc;">Formosa Site</text>
+
+                    <!-- Fifth Ward Elementary (extreme spike) -->
+                    <circle cx="260" cy="240" r="40" fill="#ff0000" opacity="0.6" class="pollution-marker" data-site="fifthward"/>
+                    <circle cx="260" cy="240" r="8" fill="#ffff00" stroke="#ff0000" stroke-width="2"/>
+                    <text x="260" y="265" class="marker-label" style="fill:#ff0000;font-weight:bold;">⚠ 83x</text>
+                    <text x="260" y="277" class="marker-label" style="font-size:8px;fill:#ff6666;">Elementary</text>
+
+                    <!-- East Baton Rouge Industrial Corridor -->
+                    <circle cx="180" cy="450" r="80" fill="url(#pollutionGradient2)" class="cancer-zone" opacity="0.5" filter="url(#glow)"/>
+                    <circle cx="180" cy="450" r="10" fill="#ff6666" class="pollution-marker" data-site="baton"/>
+                    <text x="180" y="465" class="marker-label">E. Baton Rouge</text>
+
+                    <!-- New Orleans Region -->
+                    <circle cx="500" cy="500" r="70" fill="url(#pollutionGradient2)" class="cancer-zone" opacity="0.4" filter="url(#glow)"/>
+                    <circle cx="500" cy="500" r="9" fill="#ff6666" class="pollution-marker" data-site="orleans"/>
+                    <text x="500" y="515" class="marker-label">New Orleans</text>
+
+                    <!-- Emerging Threats -->
+                    <circle cx="150" cy="150" r="60" fill="url(#pollutionGradient2)" class="cancer-zone" opacity="0.4" filter="url(#glow)"/>
+                    <circle cx="150" cy="150" r="8" fill="#ff9999" class="pollution-marker" data-site="ascension"/>
+                    <text x="150" y="165" class="marker-label">Ascension</text>
+
+                    <!-- Seed dispersal layer -->
+                    <g>
+                        <circle cx="250" cy="280" r="4" class="seed-particle" style="animation: seed-drift-1 3.2s steps(2, end) infinite;"/>
+                        <circle cx="320" cy="350" r="4.5" class="seed-particle" style="animation: seed-drift-2 3.8s steps(2, end) infinite; animation-delay: 0.8s;"/>
+                        <circle cx="380" cy="200" r="4" class="seed-particle" style="animation: seed-drift-3 3.5s steps(2, end) infinite; animation-delay: 1.6s;"/>
+                        <circle cx="180" cy="450" r="4.5" class="seed-particle" style="animation: seed-drift-4 3.9s steps(2, end) infinite; animation-delay: 1.2s;"/>
+                        <circle cx="500" cy="500" r="4" class="seed-particle" style="animation: seed-drift-5 3.6s steps(2, end) infinite; animation-delay: 2s;"/>
+                        <circle cx="150" cy="150" r="4.5" class="seed-particle" style="animation: seed-drift-6 4s steps(2, end) infinite; animation-delay: 0.4s;"/>
+                        <circle cx="260" cy="240" r="4" class="seed-particle" style="animation: seed-drift-1 3.4s steps(2, end) infinite; animation-delay: 2.4s;"/>
+                        <circle cx="400" cy="400" r="4" class="seed-particle" style="animation: seed-drift-3 3.7s steps(2, end) infinite; animation-delay: 1.4s;"/>
+                        <circle cx="280" cy="350" r="4.5" class="seed-particle" style="animation: seed-drift-2 3.8s steps(2, end) infinite; animation-delay: 0.6s;"/>
+                        <circle cx="450" cy="250" r="4" class="seed-particle" style="animation: seed-drift-5 3.6s steps(2, end) infinite; animation-delay: 2.2s;"/>
+                    </g>
+
+                    <!-- Paranormal activity layer: reported ghost sightings -->
+                    <circle cx="602" cy="462" r="9" class="ghost-node-ring"/>
+                    <circle cx="602" cy="462" r="5" class="pollution-marker ghost-node" data-site="myrtles"/>
+                    <text x="602" y="478" class="marker-label" style="font-size:8px;fill:#d4ffff;">Myrtles</text>
+
+                    <circle cx="525" cy="430" r="9" class="ghost-node-ring" style="animation-delay:0.4s;"/>
+                    <circle cx="525" cy="430" r="5" class="pollution-marker ghost-node" data-site="frenchquarter" style="animation-delay:0.2s;"/>
+                    <text x="525" y="446" class="marker-label" style="font-size:8px;fill:#d4ffff;">French Quarter</text>
+
+                    <circle cx="214" cy="336" r="9" class="ghost-node-ring" style="animation-delay:0.8s;"/>
+                    <circle cx="214" cy="336" r="5" class="pollution-marker ghost-node" data-site="manchac" style="animation-delay:0.5s;"/>
+                    <text x="214" y="352" class="marker-label" style="font-size:8px;fill:#d4ffff;">Manchac</text>
+
+                    <circle cx="278" cy="162" r="9" class="ghost-node-ring" style="animation-delay:1.2s;"/>
+                    <circle cx="278" cy="162" r="5" class="pollution-marker ghost-node" data-site="stfrancisville" style="animation-delay:0.7s;"/>
+                    <text x="278" y="178" class="marker-label" style="font-size:8px;fill:#d4ffff;">St. Francisville</text>
+
+                    <!-- Additional paranormal layer density -->
+                    <circle cx="446" cy="284" r="9" class="ghost-node-ring" style="animation-delay:0.6s;"/>
+                    <circle cx="446" cy="284" r="5" class="pollution-marker ghost-node" data-site="lauriemansion" style="animation-delay:0.3s;"/>
+                    <text x="446" y="300" class="marker-label" style="font-size:8px;fill:#d4ffff;">LaLaurie</text>
+
+                    <circle cx="480" cy="310" r="9" class="ghost-node-ring" style="animation-delay:1.4s;"/>
+                    <circle cx="480" cy="310" r="5" class="pollution-marker ghost-node" data-site="stlouiscemetery" style="animation-delay:0.9s;"/>
+                    <text x="480" y="326" class="marker-label" style="font-size:8px;fill:#d4ffff;">St. Louis Cem.</text>
+
+                    <circle cx="510" cy="354" r="9" class="ghost-node-ring" style="animation-delay:0.3s;"/>
+                    <circle cx="510" cy="354" r="5" class="pollution-marker ghost-node" data-site="treme" style="animation-delay:0.1s;"/>
+                    <text x="510" y="370" class="marker-label" style="font-size:8px;fill:#d4ffff;">Treme District</text>
+
+                    <circle cx="380" cy="120" r="9" class="ghost-node-ring" style="animation-delay:1.6s;"/>
+                    <circle cx="380" cy="120" r="5" class="pollution-marker ghost-node" data-site="natchitoches" style="animation-delay:1.1s;"/>
+                    <text x="380" y="136" class="marker-label" style="font-size:8px;fill:#d4ffff;">Natchitoches</text>
+
+                    <circle cx="420" cy="160" r="9" class="ghost-node-ring" style="animation-delay:0.9s;"/>
+                    <circle cx="420" cy="160" r="5" class="pollution-marker ghost-node" data-site="caneriver" style="animation-delay:0.5s;"/>
+                    <text x="420" y="176" class="marker-label" style="font-size:8px;fill:#d4ffff;">Cane River</text>
+
+                    <circle cx="310" cy="280" r="9" class="ghost-node-ring" style="animation-delay:1.1s;"/>
+                    <circle cx="310" cy="280" r="5" class="pollution-marker ghost-node" data-site="donaldsonville" style="animation-delay:0.6s;"/>
+                    <text x="310" y="296" class="marker-label" style="font-size:8px;fill:#d4ffff;">Donaldsonville</text>
+
+                    <circle cx="350" cy="380" r="9" class="ghost-node-ring" style="animation-delay:0.7s;"/>
+                    <circle cx="350" cy="380" r="5" class="pollution-marker ghost-node" data-site="shadowsonteche" style="animation-delay:0.4s;"/>
+                    <text x="350" y="396" class="marker-label" style="font-size:8px;fill:#d4ffff;">Shadows-Teche</text>
+
+                    <circle cx="280" cy="480" r="9" class="ghost-node-ring" style="animation-delay:1.3s;"/>
+                    <circle cx="280" cy="480" r="5" class="pollution-marker ghost-node" data-site="falseriver" style="animation-delay:0.8s;"/>
+                    <text x="280" y="496" class="marker-label" style="font-size:8px;fill:#d4ffff;">False River</text>
+
+                    <circle cx="240" cy="550" r="9" class="ghost-node-ring" style="animation-delay:0.5s;"/>
+                    <circle cx="240" cy="550" r="5" class="pollution-marker ghost-node" data-site="morganicity" style="animation-delay:0.2s;"/>
+                    <text x="240" y="566" class="marker-label" style="font-size:8px;fill:#d4ffff;">Morgan City</text>
+
+                    <circle cx="440" cy="520" r="9" class="ghost-node-ring" style="animation-delay:1.0s;"/>
+                    <circle cx="440" cy="520" r="5" class="pollution-marker ghost-node" data-site="bayouteche" style="animation-delay:0.5s;"/>
+                    <text x="440" y="536" class="marker-label" style="font-size:8px;fill:#d4ffff;">Bayou Teche</text>
+
+                    <circle cx="190" cy="400" r="9" class="ghost-node-ring" style="animation-delay:0.8s;"/>
+                    <circle cx="190" cy="400" r="5" class="pollution-marker ghost-node" data-site="plaquemines" style="animation-delay:0.3s;"/>
+                    <text x="190" y="416" class="marker-label" style="font-size:8px;fill:#d4ffff;">Plaquemines</text>
+
+                    <!-- River indicator -->
+                    <path d="M 150 50 Q 180 100 200 150 T 250 280 T 350 400 T 500 500" 
+                          stroke="rgba(0,200,255,0.3)" stroke-width="8" fill="none" opacity="0.5"/>
+                    <text x="120" y="100" class="marker-label" style="font-size:10px;fill:rgba(0,200,255,0.5);">Mississippi R.</text>
+
+                    <!-- Cancer rate overlay zones -->
+                    <g opacity="0.15" stroke="#ff0000" stroke-width="1" fill="none">
+                        <circle cx="250" cy="280" r="150"/>
+                        <circle cx="320" cy="350" r="140"/>
+                        <circle cx="380" cy="200" r="130"/>
+                    </g>
+                </svg>
+
+                <!-- Info Overlay -->
+                <div class="info-overlay">
+                    <h3 id="site-name">Select a Zone</h3>
+                    <p id="site-info">Hover over markers to view detailed threat assessment and cancer risk data.</p>
+                </div>
+            </div>
+
+            <!-- Legend -->
+            <div class="heatmap-legend">
+                <div class="legend-item">
+                    <div class="legend-swatch" style="background: #ff0000;"></div>
+                    <span>CRITICAL (47x+ EPA level)</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-swatch" style="background: #ff3333;"></div>
+                    <span>HIGH RISK (20-47x)</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-swatch" style="background: #ff6666;"></div>
+                    <span>ELEVATED (10-20x)</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-swatch" style="background: rgba(0,200,255,0.5);"></div>
+                    <span>Mississippi River</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-swatch" style="background: #b4ffff; box-shadow: 0 0 10px #b4ffff;"></div>
+                    <span>Pulsing Ghost Sightings / Paranormal Reports</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="haunt-alert" id="haunt-alert" aria-live="polite">
+        <h4>Spectral Breach Detected</h4>
+        <p id="haunt-message">A haunted moment is forming.</p>
+        <div class="haunt-meta">
+            <span id="haunt-target">Source: --</span>
+            <span id="haunt-countdown">Open in --s</span>
+        </div>
+        <button id="haunt-open-now" type="button">Open Now</button>
+    </div>
+
+    <div class="image-modal" id="image-modal" aria-hidden="true" role="dialog" aria-label="Expanded Spectral Child image">
+        <button class="image-modal-close" id="image-modal-close" type="button">Close</button>
+        <div class="image-modal-window">
+            <div class="image-modal-stage" id="image-modal-stage">
+                <img id="image-modal-img" src="" alt="Expanded Spectral Child artwork" />
+                <div class="image-zoom-lens" id="image-zoom-lens"></div>
+            </div>
+            <div class="image-modal-meta">
+                <div class="image-zoom-panel" id="image-zoom-panel"></div>
+                <p class="zoom-hint">Hover image to inspect details</p>
+                <p class="image-modal-caption" id="image-modal-caption"></p>
+            </div>
+        </div>
+    </div>
+
+    <div class="heatmap-modal" id="heatmap-modal" aria-hidden="true" role="dialog" aria-label="Expanded predictive heat map">
+        <button class="heatmap-modal-close" id="heatmap-modal-close" type="button">Close</button>
+        <div class="heatmap-modal-window">
+            <p class="heatmap-modal-title">Predictive Harm Map — Expanded View</p>
+            <div class="heatmap-modal-stage" id="heatmap-modal-stage"></div>
+        </div>
+    </div>
+
+    <!-- Site data -->
+    <script>
+        const siteData = {
+            denka: {
+                name: "DENKA Performance Elastomer Plant",
+                location: "Reserve/LaPlace, St. John the Baptist Parish",
+                threat: "CRITICAL",
+                chemical: "Chloroprene (Neoprene)",
+                level: "14x EPA guideline (0.2 μg/m³)",
+                emission: "99% of US chloroprene emissions",
+                exposure: "700x national average cancer risk nearby",
+                population: "Majority Black community",
+                history: "Operated by DuPont 1969-2015, now Denka"
+            },
+            gabriel: {
+                name: "St. Gabriel Industrial Complex",
+                location: "Iberville Parish",
+                threat: "CRITICAL",
+                plants: "30+ large petrochemical facilities",
+                radius: "Within 10-mile radius",
+                employment: "Only 9% jobs held by local residents",
+                poverty: "25%+ local poverty rate",
+                exposure: "Multiple toxic compounds"
+            },
+            stjames: {
+                name: "St. James Parish Industrial Corridor",
+                location: "St. James Parish",
+                threat: "CRITICAL",
+                proposed: "Formosa Plastics Sunshine Project ($9.4B)",
+                ghg: "13.6M tons annual greenhouse gas emissions",
+                scale: "2,500 acres, world's largest",
+                history: "Enslaved burial sites discovered on project land",
+                population: "65.7% Black community"
+            },
+            fifthward: {
+                name: "Fifth Ward Elementary School",
+                location: "LaPlace, 1,500 ft from Denka plant",
+                threat: "EXTREME",
+                level: "83x EPA guideline at monitoring station",
+                risk: "Children's cells divide rapidly = high mutation risk",
+                exposure: "Daily exposure for 600+ students",
+                status: "Active monitoring ongoing"
+            },
+            baton: {
+                name: "East Baton Rouge Refinery Corridor",
+                location: "East Baton Rouge Parish",
+                threat: "HIGH",
+                facilities: "Multiple oil refineries and petrochemical plants",
+                exposure: "10x EPA recommended health risk"
+            },
+            orleans: {
+                name: "New Orleans Region",
+                location: "Orleans Parish (part of Cancer Alley)",
+                threat: "ELEVATED",
+                history: "Former plantation lands → industrial sites",
+                exposure: "Environmental racism: NIMBY displacement"
+            },
+            ascension: {
+                name: "Ascension Parish",
+                location: "Ascension Parish",
+                threat: "HIGH",
+                status: "Emerging industrial development zone"
+            },
+            myrtles: {
+                name: "Myrtles Plantation",
+                location: "St. Francisville, West Feliciana Parish",
+                threat: "PARANORMAL",
+                reports: "One of Louisiana's most reported ghost-sighting sites",
+                activity: "Apparitions, unexplained footsteps, and photographic anomalies",
+                relation: "Pulsing node marks cultural haunting reports in parallel with environmental trauma"
+            },
+            frenchquarter: {
+                name: "French Quarter Haunting Cluster",
+                location: "New Orleans, Orleans Parish",
+                threat: "PARANORMAL",
+                reports: "Persistent reports in historic buildings and corridors",
+                activity: "Cold spots, disembodied voices, and shadow figures",
+                relation: "Node overlays urban lore with adjacent pollution burden"
+            },
+            manchac: {
+                name: "Manchac Swamp Sightings",
+                location: "St. John / Tangipahoa swamp edge",
+                threat: "PARANORMAL",
+                reports: "Long-running regional stories of spectral encounters",
+                activity: "Lights, movement in marsh fog, and auditory anomalies",
+                relation: "Node intersects petrochemical corridor and wetland mythologies"
+            },
+            stfrancisville: {
+                name: "St. Francisville Activity Zone",
+                location: "St. Francisville region, near corridor upland",
+                threat: "PARANORMAL",
+                reports: "Repeated historical haunting narratives",
+                activity: "Visual apparitions and recurring witness testimonies",
+                relation: "Speculative signal showing social memory as a map layer"
+            },
+            lauriemansion: {
+                name: "LaLaurie Mansion",
+                location: "French Quarter, New Orleans",
+                threat: "PARANORMAL",
+                reports: "One of America's most haunted houses—documented torture victims",
+                activity: "Screams, apparitions, shadow figures in slave quarters",
+                relation: "Historic trauma overlaid with present environmental injustice"
+            },
+            stlouiscemetery: {
+                name: "St. Louis Cemetery No. 1",
+                location: "New Orleans, Orleans Parish",
+                threat: "PARANORMAL",
+                reports: "Voodoo queen Marie Laveau's tomb, persistent visitor encounters",
+                activity: "Apparitions, inexplicable phenomena, ritual site reports",
+                relation: "Sacred ground intertwined with cultural memory and surveillance"
+            },
+            treme: {
+                name: "Treme District Hauntings",
+                location: "Treme neighborhood, New Orleans",
+                threat: "PARANORMAL",
+                reports: "Historic African American district with strong paranormal tradition",
+                activity: "Spectral figures, historical reenactments, cultural echoes",
+                relation: "Node marks living history and intergenerational trauma"
+            },
+            natchitoches: {
+                name: "Natchitoches Historic District",
+                location: "Natchitoches, Louisiana (oldest settlement)",
+                threat: "PARANORMAL",
+                reports: "Numerous plantation hauntings and colonial-era apparitions",
+                activity: "Spectral gatherings, period-dressed figures, temporal distortions",
+                relation: "Foundational site of colonial and enslaved labor haunting"
+            },
+            caneriver: {
+                name: "Cane River Plantation Region",
+                location: "Cane River valley, Natchitoches Parish",
+                threat: "PARANORMAL",
+                reports: "Multiple plantation reports of spectral activity",
+                activity: "Water-bound apparitions, field hauntings, historical voices",
+                relation: "Landscape haunted by extraction and forced labor"
+            },
+            donaldsonville: {
+                name: "Donaldsonville Historic Core",
+                location: "Ascension Parish riverfront",
+                threat: "PARANORMAL",
+                reports: "Riverfront hauntings and documented ghost sightings",
+                activity: "Maritime spirits, dockside apparitions, temporal echoes",
+                relation: "Node marks river-corridor historical trauma convergence"
+            },
+            shadowsonteche: {
+                name: "Shadows-on-the-Teche",
+                location: "New Iberia, Iberville Parish",
+                threat: "PARANORMAL",
+                reports: "Documented paranormal activity in antebellum mansion",
+                activity: "Apparitions in period dress, footsteps, unexplained cold spots",
+                relation: "Spectral residents parallel living environmental crisis"
+            },
+            falseriver: {
+                name: "False River Ghost Activity",
+                location: "Pointe Coupée Parish oxbow lake",
+                threat: "PARANORMAL",
+                reports: "Lake-based paranormal encounters and water spirits",
+                activity: "Lights over water, drowning victims, maritime hauntings",
+                relation: "Wetland hauntings mirror ecological collapse"
+            },
+            morganicity: {
+                name: "Morgan City Bayou Encounters",
+                location: "St. Mary Parish bayou industrial zone",
+                threat: "PARANORMAL",
+                reports: "Swamp-based sightings and industrial accident spirits",
+                activity: "Bayou wraiths, industrial phantom footsteps, maritime echoes",
+                relation: "Node bridges paranormal and petrochemical haunting"
+            },
+            bayouteche: {
+                name: "Bayou Teche Spirit Reports",
+                location: "St. Martin Parish bayou corridor",
+                threat: "PARANORMAL",
+                reports: "Swamp folklore and documented paranormal water encounters",
+                activity: "Apparitions on waterways, ancestor spirits, indigenous presence",
+                relation: "Wetland hauntings signal ecological and cultural loss"
+            },
+            plaquemines: {
+                name: "Plaquemines Parish Delta Hauntings",
+                location: "Plaquemines Parish delta region",
+                threat: "PARANORMAL",
+                reports: "Coastal plantation hauntings and maritime ghost sightings",
+                activity: "Seafaring spirits, plantation workers, storm-related apparitions",
+                relation: "Coastal-margin node marking intersection of climate and trauma"
+            }
+
+        };
+
+        // Interactivity
+        document.querySelectorAll('.pollution-marker').forEach(marker => {
+            marker.addEventListener('click', function() {
+                const siteKey = this.getAttribute('data-site');
+                const site = siteData[siteKey];
+                const overlay = document.querySelector('.info-overlay');
+                const nameEl = document.getElementById('site-name');
+                const infoEl = document.getElementById('site-info');
+
+                nameEl.textContent = site.name;
+                let infoText = `<strong>Location:</strong> ${site.location}<br>`;
+                infoText += `<strong>Threat Level:</strong> ${site.threat}<br>`;
+                
+                for (let key in site) {
+                    if (key !== 'name' && key !== 'location' && key !== 'threat') {
+                        infoText += `<strong>${key}:</strong> ${site[key]}<br>`;
+                    }
+                }
+                
+                infoEl.innerHTML = infoText;
+                overlay.classList.add('active');
+            });
+
+            marker.addEventListener('mouseenter', function() {
+                const siteKey = this.getAttribute('data-site');
+                const site = siteData[siteKey];
+                const overlay = document.querySelector('.info-overlay');
+                const nameEl = document.getElementById('site-name');
+                const infoEl = document.getElementById('site-info');
+
+                nameEl.textContent = site.name;
+                let infoText = `<strong>${site.threat}</strong><br>`;
+                infoText += `<strong>Location:</strong> ${site.location}<br>`;
+                
+                const firstKey = Object.keys(site).find(k => k !== 'name' && k !== 'location' && k !== 'threat');
+                if (firstKey) {
+                    infoText += `<strong>${firstKey}:</strong> ${site[firstKey]}`;
+                }
+                
+                infoEl.innerHTML = infoText;
+                overlay.classList.add('active');
+            });
+        });
+
+        const heatmapContainer = document.getElementById('heatmap-container');
+
+        heatmapContainer.addEventListener('mouseleave', function() {
+            document.querySelector('.info-overlay').classList.remove('active');
+        });
+
+        const heatmapPopoutTrigger = document.getElementById('heatmap-popout-trigger');
+        const heatmapModal = document.getElementById('heatmap-modal');
+        const heatmapModalStage = document.getElementById('heatmap-modal-stage');
+        const heatmapModalClose = document.getElementById('heatmap-modal-close');
+
+        function openHeatmapModal() {
+            const sourceSvg = document.getElementById('heatmap-svg');
+            const expandedSvg = sourceSvg.cloneNode(true);
+            expandedSvg.id = 'heatmap-svg-expanded';
+            heatmapModalStage.replaceChildren(expandedSvg);
+            heatmapModal.classList.add('active');
+            heatmapModal.setAttribute('aria-hidden', 'false');
+        }
+
+        function closeHeatmapModal() {
+            heatmapModal.classList.remove('active');
+            heatmapModal.setAttribute('aria-hidden', 'true');
+            heatmapModalStage.replaceChildren();
+        }
+
+        heatmapPopoutTrigger.addEventListener('click', (event) => {
+            event.stopPropagation();
+            openHeatmapModal();
+        });
+
+        heatmapContainer.addEventListener('dblclick', (event) => {
+            const marker = event.target.closest ? event.target.closest('.pollution-marker') : null;
+            const overlay = event.target.closest ? event.target.closest('.info-overlay') : null;
+            if (!marker && !overlay) {
+                openHeatmapModal();
+            }
+        });
+
+        heatmapModalClose.addEventListener('click', closeHeatmapModal);
+        heatmapModal.addEventListener('click', (event) => {
+            if (event.target === heatmapModal) {
+                closeHeatmapModal();
+            }
+        });
+
+        const heroImage = document.getElementById('hero-image');
+        const imageModal = document.getElementById('image-modal');
+        const imageModalStage = document.getElementById('image-modal-stage');
+        const imageModalImg = document.getElementById('image-modal-img');
+        const imageZoomLens = document.getElementById('image-zoom-lens');
+        const imageZoomPanel = document.getElementById('image-zoom-panel');
+        const imageModalCaption = document.getElementById('image-modal-caption');
+        const imageModalClose = document.getElementById('image-modal-close');
+
+        function openImageModal() {
+            imageModalImg.src = heroImage.src;
+            imageModalCaption.textContent = heroImage.alt;
+            imageZoomPanel.style.backgroundImage = `url("${heroImage.src}")`;
+            imageModal.classList.add('active');
+            imageModal.setAttribute('aria-hidden', 'false');
+        }
+
+        function closeImageModal() {
+            imageModal.classList.remove('active');
+            imageModal.setAttribute('aria-hidden', 'true');
+            imageModalStage.classList.remove('zooming');
+            imageZoomPanel.classList.remove('active');
+        }
+
+        function updateZoom(event) {
+            const rect = imageModalStage.getBoundingClientRect();
+            let x = (event.clientX - rect.left) / rect.width;
+            let y = (event.clientY - rect.top) / rect.height;
+
+            x = Math.max(0, Math.min(1, x));
+            y = Math.max(0, Math.min(1, y));
+
+            const lensWidth = imageZoomLens.offsetWidth;
+            const lensHeight = imageZoomLens.offsetHeight;
+            const lensX = x * rect.width - lensWidth / 2;
+            const lensY = y * rect.height - lensHeight / 2;
+
+            imageZoomLens.style.left = `${Math.max(0, Math.min(rect.width - lensWidth, lensX))}px`;
+            imageZoomLens.style.top = `${Math.max(0, Math.min(rect.height - lensHeight, lensY))}px`;
+            imageZoomPanel.style.backgroundPosition = `${x * 100}% ${y * 100}%`;
+        }
+
+        heroImage.addEventListener('click', openImageModal);
+        heroImage.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                openImageModal();
+            }
+        });
+
+        imageModalClose.addEventListener('click', closeImageModal);
+        imageModalStage.addEventListener('mouseenter', () => {
+            imageModalStage.classList.add('zooming');
+            imageZoomPanel.classList.add('active');
+        });
+        imageModalStage.addEventListener('mouseleave', () => {
+            imageModalStage.classList.remove('zooming');
+            imageZoomPanel.classList.remove('active');
+        });
+        imageModalStage.addEventListener('mousemove', updateZoom);
+        imageModal.addEventListener('click', (event) => {
+            if (event.target === imageModal) {
+                closeImageModal();
+            }
+        });
+
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape' && imageModal.classList.contains('active')) {
+                closeImageModal();
+            }
+            if (event.key === 'Escape' && heatmapModal.classList.contains('active')) {
+                closeHeatmapModal();
+            }
+        });
+
+        // Haunted moments: random spectral links
+        const hauntedLinks = [
+            {
+                label: "Undark: EPA cites environmental racism",
+                url: "https://undark.org/2022/10/25/epa-cites-environmental-racism-in-louisianas-cancer-alley/?gad_source=1&gad_campaignid=18401135165&gbraid=0AAAAADKKeAw9xNSUzcZpjauIgNY7lf4WE&gclid=Cj0KCQjw8PDPBhCeARIsAOJwmWW4--siQDv1krbnoSc7VQS-N1oi2kBw4z39ldOmNXb_VmDuZYqF79YaAlF0EALw_wcB"
+            },
+            {
+                label: "Wikipedia: Cancer Alley",
+                url: "https://en.wikipedia.org/wiki/Cancer_Alley"
+            },
+            {
+                label: "Wikipedia: Baton Rouge Refinery",
+                url: "https://en.wikipedia.org/wiki/Baton_Rouge_Refinery"
+            }
+        ];
+
+        const hauntAlert = document.getElementById('haunt-alert');
+        const hauntMessage = document.getElementById('haunt-message');
+        const hauntTarget = document.getElementById('haunt-target');
+        const hauntCountdown = document.getElementById('haunt-countdown');
+        const hauntOpenNow = document.getElementById('haunt-open-now');
+
+        let hauntTimerId = null;
+        let hauntCountdownId = null;
+        let pendingHaunt = null;
+
+        function randomRange(minMs, maxMs) {
+            return Math.floor(Math.random() * (maxMs - minMs + 1)) + minMs;
+        }
+
+        function openHauntedLink(haunt) {
+            if (!haunt) {
+                return;
+            }
+            const popup = window.open(haunt.url, "_blank", "noopener,noreferrer");
+            if (!popup) {
+                // Fallback when popup blockers prevent new tab creation.
+                window.location.href = haunt.url;
+            }
+        }
+
+        function hideHauntAlert() {
+            hauntAlert.classList.remove('active');
+            if (hauntCountdownId) {
+                clearInterval(hauntCountdownId);
+                hauntCountdownId = null;
+            }
+        }
+
+        function triggerHauntedMoment() {
+            if (document.hidden) {
+                scheduleNextHaunt();
+                return;
+            }
+
+            const haunt = hauntedLinks[Math.floor(Math.random() * hauntedLinks.length)];
+            pendingHaunt = haunt;
+            let secondsLeft = 3;
+
+            hauntMessage.textContent = "Paranormal cross-link event: evidence is surfacing.";
+            hauntTarget.textContent = "Source: " + haunt.label;
+            hauntCountdown.textContent = "Open in " + secondsLeft + "s";
+            hauntAlert.classList.add('active');
+
+            if (hauntCountdownId) {
+                clearInterval(hauntCountdownId);
+            }
+
+            hauntCountdownId = setInterval(() => {
+                secondsLeft -= 1;
+                if (secondsLeft <= 0) {
+                    clearInterval(hauntCountdownId);
+                    hauntCountdownId = null;
+                    hideHauntAlert();
+                    openHauntedLink(haunt);
+                    scheduleNextHaunt();
+                    return;
+                }
+                hauntCountdown.textContent = "Open in " + secondsLeft + "s";
+            }, 1000);
+        }
+
+        function scheduleNextHaunt() {
+            if (hauntTimerId) {
+                clearTimeout(hauntTimerId);
+            }
+            const delay = randomRange(25000, 55000);
+            hauntTimerId = setTimeout(triggerHauntedMoment, delay);
+        }
+
+        hauntOpenNow.addEventListener('click', () => {
+            const haunt = pendingHaunt;
+            hideHauntAlert();
+            openHauntedLink(haunt);
+            scheduleNextHaunt();
+        });
+
+        // First haunting starts shortly after page load.
+        setTimeout(scheduleNextHaunt, 15000);
+
+        // Background canvas glitch effect
+        const bgCanvas = document.getElementById('background-canvas');
+        const bgCtx = bgCanvas.getContext('2d');
+        
+        function resizeCanvas() {
+            bgCanvas.width = window.innerWidth;
+            bgCanvas.height = window.innerHeight;
+        }
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+
+        function drawGlitchBackground() {
+            const now = Date.now() * 0.001;
+            bgCtx.fillStyle = `rgba(10, 14, 39, ${0.3 + Math.sin(now) * 0.05})`;
+            bgCtx.fillRect(0, 0, bgCanvas.width, bgCanvas.height);
+
+            if (Math.random() > 0.97) {
+                const y = Math.random() * bgCanvas.height;
+                const h = Math.random() * 15;
+                bgCtx.fillStyle = `rgba(0, 255, 255, ${Math.random() * 0.15})`;
+                bgCtx.fillRect(0, y, bgCanvas.width, h);
+            }
+
+            requestAnimationFrame(drawGlitchBackground);
+        }
+        drawGlitchBackground();
+    </script>
+</body>
+</html>
